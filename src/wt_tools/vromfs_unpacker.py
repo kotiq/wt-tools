@@ -42,10 +42,27 @@ def unpack(filename: os.PathLike, dist_dir: os.PathLike, file_list_path: Optiona
         # normalise paths in inputted list
         file_list = [os.path.normcase(p) for p in file_list]
 
-    is_new_version = parsed.is_new_version
+    # is_new_version = parsed.is_new_version
     is_dict_here = parsed.body.data.data.filename_table.filenames[0].filename.endswith('.dict')
     is_namemap_here = parsed.body.data.data.filename_table.filenames[parsed.body.data.data.files_count-1]\
         .filename == 'nm'
+
+    if parsed.header.magic == 'vrfx':
+        is_new_version = parsed.ext_header.version >= 0x02_07_00_3a
+    else:  # vrfs
+        if is_dict_here or is_namemap_here:
+            is_new_version = True
+        else:
+            def get_base_name(name):
+                pos = name.rfind('/')
+                return name[pos+1:]
+
+            base_names = (get_base_name(o.filename) for o in parsed.body.data.data.filename_table.filenames)
+            first_bytes = (o.data[0] for o in parsed.body.data.data.file_data_table.file_data_list)
+            is_new_version = any(packed_type in (4, 5)
+                                 for basename, packed_type in zip(base_names, first_bytes)
+                                 if basename.endswith('.blk'))
+
     if is_new_version:
         if is_dict_here:
             zstd_dict = zstandard.ZstdCompressionDict(parsed.body.data.data.file_data_table.file_data_list[0].data,

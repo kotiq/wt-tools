@@ -4,14 +4,10 @@ import logging
 import pytest
 from vromfs_unpacker import unpack
 from helpers import make_outpath, make_tmppath
+from . import stem
 
 outpath = make_outpath(__name__)
 tmppath = make_tmppath(__name__)
-
-
-def stem(name):
-    pos = name.rfind('.vromfs.bin')
-    return name if pos == -1 else name[:pos]
 
 
 def blk_file_size(dirname):
