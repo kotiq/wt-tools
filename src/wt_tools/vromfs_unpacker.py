@@ -59,7 +59,7 @@ def unpack(filename: os.PathLike, dist_dir: os.PathLike, file_list_path: Optiona
 
             base_names = (get_base_name(o.filename) for o in parsed.body.data.data.filename_table.filenames)
             first_bytes = (o.data[0] for o in parsed.body.data.data.file_data_table.file_data_list)
-            is_new_version = any(packed_type in (4, 5)
+            is_new_version = any(packed_type in (2, 4, 5)
                                  for basename, packed_type in zip(base_names, first_bytes)
                                  if basename.endswith('.blk'))
 
@@ -113,7 +113,9 @@ def unpack(filename: os.PathLike, dist_dir: os.PathLike, file_list_path: Optiona
                                 f.write(parsed.body.data.data.file_data_table.file_data_list[i].data[1:])
                             # where that file can be found?
                             elif packed_type == 2:
-                                print("packed_type:{}, file:{}".format(packed_type, unpacked_filename))
+                                decoded_data = dctx.decompress(
+                                    parsed.body.data.data.file_data_table.file_data_list[i].data[4:])
+                                f.write(decoded_data[1:])
                             # not zstd packed, small blk file?
                             elif packed_type == 3:
                                 f.write(parsed.body.data.data.file_data_table.file_data_list[i].data[1:])

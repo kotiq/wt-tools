@@ -1,6 +1,7 @@
 import os
 import shutil
 import pytest
+import construct as ct
 from vromfs_unpacker import unpack
 from helpers import make_tmppath
 from . import stem
@@ -37,3 +38,33 @@ def test_unpack(binrespath, rpath, tmppath):
                     with open(path, 'rb') as istream:
                         bs = istream.read(8)
                         assert ZSTD_MAGIC not in bs, path
+
+
+def is_text(bs: bytes) -> bool:
+    restricted = bytes.fromhex('00 01 02 03 04 05 06 07 08 0b 0c 0e 0f 10 11 12 14 13 15 16 17 18 19')
+    return not any(b in restricted for b in bs)
+
+
+def test_unpack_type_2(binrespath, tmppath):
+    rpath = 'regional.vromfs.bin'
+    filename = os.path.join(binrespath, rpath)
+    dist_dir = os.path.join(tmppath, f'{rpath}_u')
+    if os.path.isdir(dist_dir):
+        shutil.rmtree(dist_dir)
+
+    unpack(filename, dist_dir)
+
+    filepath = os.path.join(dist_dir, 'dldata', 'downloadable_decals.blk')
+    with open(filepath, 'rb') as istream:
+        bs = istream.read(4)
+        assert bs
+        if bs not in (b'\x00BBF', b'\x00BBz') and not bs[0]:
+            istream.seek(0)
+            RawCString = ct.NullTerminated(ct.GreedyBytes)
+            Names = ct.FocusedSeq(
+                'names',
+                'names_count' / ct.VarInt,
+                'names' / ct.Prefixed(ct.VarInt, RawCString[ct.this.names_count])
+            )
+            names = Names.parse_stream(istream)
+            assert all(map(is_text, names))
