@@ -105,7 +105,7 @@ def unpack(filename: os.PathLike, dist_dir: os.PathLike, file_list_path: Optiona
                                 decoded_data = dctx.decompress(
                                     parsed.body.data.data.file_data_table.file_data_list[i].data[1:],
                                     # 200_000 is some working value
-                                    max_output_size=200_000)
+                                    max_output_size=5_000_000)
                                 f.write(decoded_data)
                             # zstd packed blk file with dict
                             elif packed_type == 5:

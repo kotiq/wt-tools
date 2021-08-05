@@ -3,3 +3,12 @@ venv/
 
 # IDEA files
 .idea/
+*.iml
+
+# python
+__pycache__/
+
+# dist, test
+build/
+.pytest_cache/
+
