@@ -45,6 +45,14 @@ def is_text(bs: bytes) -> bool:
     return not any(b in restricted for b in bs)
 
 
+def is_bbf3(bs):
+    return bs[:4] in (b'\x00BBF', b'\x00BBz')
+
+
+def is_slim(bs):
+    return not bs[0]
+
+
 def test_unpack_type_2(binrespath, tmppath):
     rpath = 'regional.vromfs.bin'
     filename = os.path.join(binrespath, rpath)
@@ -58,7 +66,7 @@ def test_unpack_type_2(binrespath, tmppath):
     with open(filepath, 'rb') as istream:
         bs = istream.read(4)
         assert bs
-        if bs not in (b'\x00BBF', b'\x00BBz') and not bs[0]:
+        if not (is_bbf3(bs) or is_slim(bs)):
             istream.seek(0)
             RawCString = ct.NullTerminated(ct.GreedyBytes)
             Names = ct.FocusedSeq(
