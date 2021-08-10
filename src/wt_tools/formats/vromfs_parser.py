@@ -1,8 +1,9 @@
 import struct
 
 import zstandard
-from construct import Construct, Enum, Byte, this, Adapter, Struct, Seek, Int32ul, Array, CString, Tell, If, Bytes, \
-    Computed, Embedded, Switch, Int24ul, Hex, Int16ul, GreedyBytes, RestreamData, IfThenElse, NullTerminated
+from construct import Construct, Enum, this, Adapter, Struct, Seek, Int32ul, Array, CString, Tell, If, Bytes, \
+    Computed, Embedded, Switch, Hex, Int16ul, GreedyBytes, RestreamData, IfThenElse, NullTerminated, ByteSwapped, \
+    BitStruct, BitsInteger, Check
 
 from .common import zlib_stream
 
@@ -10,11 +11,19 @@ NOT_PACKED_ADDED_OFFSET = 0x10
 NOT_PACKED_FILE_DATA_TABLE_OFFSET = 0x20
 NOT_PACKED_FILENAME_TABLE_OFFSET = 0x40
 
+NOT_PACKED = "not_packed"
+ZSTD_PACKED = "zstd_packed"
+ZSTD_PACKED_NOCHECK = "zstd_packed_nocheck"
+ZLIB_PACKED = "zlib_packed"
+MAYBE_PACKED = "maybe_packed"
+TRAP = "hoo"
+
 vromfs_type = Enum(
-    Byte,
-    unknown_type=0x40,
-    maybe_packed=0x80,
-    zstd_packed=0xc0
+    BitsInteger(6), **{
+        ZSTD_PACKED_NOCHECK: 0x10,
+        MAYBE_PACKED: 0x20,
+        ZSTD_PACKED: 0x30
+    }
 )
 
 
@@ -150,24 +159,41 @@ vromfs_zlib_packed_body = Struct(
     "data" / RestreamData(this.decompressed_body, not_packed_stream),
 )
 
+
+def vromfs_packed_type(ctx):
+    vromfs_type = ctx.vromfs_type
+    packed_size = ctx.packed_size
+    if not packed_size:
+        type_ = NOT_PACKED
+    elif vromfs_type in (ZSTD_PACKED, ZSTD_PACKED_NOCHECK):
+        type_ = ZSTD_PACKED
+    elif vromfs_type == MAYBE_PACKED:
+        type_ = ZLIB_PACKED
+    else:
+        type_ = TRAP
+    return type_
+
+
 vromfs_header = Struct(
     "magic" / Enum(Bytes(4), vrfs=b"VRFs", vrfx=b"VRFx"),
     "platform" / Enum(Bytes(4), pc=b"\x00\x00PC", ios=b"\x00iOS", andr=b"\x00and"),
     "original_size" / Int32ul,
-    "packed_size" / Int24ul,
-    "vromfs_type" / vromfs_type,
-    "vromfs_packed_type" / Computed(lambda ctx: "zstd_packed" if ctx.vromfs_type == "zstd_packed" else
-    ("not_packed" if ctx.vromfs_type == "maybe_packed" and ctx.packed_size == 0 else
-     ("zlib_packed" if ctx.vromfs_type == "maybe_packed" and ctx.packed_size > 0 else "hoo"))),
+    "packed" / ByteSwapped(BitStruct(
+        "type" / vromfs_type,
+        "size" / BitsInteger(26),
+    )),
+    "packed_size" / Computed(this.packed.size),
+    "vromfs_type" / Computed(this.packed.type),
+    "vromfs_packed_type" / Computed(vromfs_packed_type),
 )
 
 vromfs_body = Struct(
     "data" / Switch(
         this._.header.vromfs_packed_type,
         {
-            "not_packed": vromfs_not_packed_body,
-            "zstd_packed": vromfs_zstd_packed_body,
-            "zlib_packed": vromfs_zlib_packed_body
+            NOT_PACKED: vromfs_not_packed_body,
+            ZSTD_PACKED: vromfs_zstd_packed_body,
+            ZLIB_PACKED: vromfs_zlib_packed_body
         }
     ),
 )
@@ -188,7 +214,10 @@ vromfs_file = Struct(
         ),
         Computed(False),
     ),
+    "vromfs_offset" / Tell,
     "body" / vromfs_body,
-    # "tail" / Bytes(272)
+    If(this.header.packed_size == 0, Seek(this.vromfs_offset + this.header.original_size)),
+    If(this.header.vromfs_type != ZSTD_PACKED_NOCHECK, "md5" / Bytes(16)),
     "tail" / GreedyBytes,
+    Check(lambda c: len(c.tail) in (0, 0x100)),
 )
