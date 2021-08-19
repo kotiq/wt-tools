@@ -47,21 +47,19 @@ def unpack(filename: os.PathLike, dist_dir: os.PathLike, file_list_path: Optiona
     is_namemap_here = parsed.body.data.data.filename_table.filenames[parsed.body.data.data.files_count-1]\
         .filename == 'nm'
 
-    if parsed.header.magic == 'vrfx':
-        is_new_version = parsed.ext_header.version >= 0x02_07_00_3a
-    else:  # vrfs
-        if is_dict_here or is_namemap_here:
-            is_new_version = True
-        else:
-            def get_base_name(name):
-                pos = name.rfind('/')
-                return name[pos+1:]
+    if is_dict_here or is_namemap_here:
+        is_new_version = True
+    else:
+        def get_base_name(name):
+            pos = name.rfind('/')
+            return name[pos+1:]
 
-            base_names = (get_base_name(o.filename) for o in parsed.body.data.data.filename_table.filenames)
-            first_bytes = (o.data[0] for o in parsed.body.data.data.file_data_table.file_data_list)
-            is_new_version = any(packed_type in (2, 4, 5)
-                                 for basename, packed_type in zip(base_names, first_bytes)
-                                 if basename.endswith('.blk'))
+        base_names = (get_base_name(o.filename) for o in parsed.body.data.data.filename_table.filenames)
+        first_bytes = (o.data[0] for o in parsed.body.data.data.file_data_table.file_data_list)
+
+        is_new_version = any(packed_type in (1, 2, 3, 4, 5)
+                             for basename, packed_type in zip(base_names, first_bytes)
+                             if basename.endswith('.blk'))
 
     if is_new_version:
         if is_dict_here:
@@ -110,17 +108,21 @@ def unpack(filename: os.PathLike, dist_dir: os.PathLike, file_list_path: Optiona
                             packed_type = parsed.body.data.data.file_data_table.file_data_list[i].data[0]
                             # not zstd packed, small blk file, with inner dict?
                             if packed_type == 1:
+                                # fat
                                 f.write(parsed.body.data.data.file_data_table.file_data_list[i].data[1:])
                             # where that file can be found?
                             elif packed_type == 2:
+                                # fat zstd
                                 decoded_data = dctx.decompress(
                                     parsed.body.data.data.file_data_table.file_data_list[i].data[4:])
                                 f.write(decoded_data[1:])
                             # not zstd packed, small blk file?
                             elif packed_type == 3:
+                                # slim
                                 f.write(parsed.body.data.data.file_data_table.file_data_list[i].data[1:])
                             # zstd packed without dict with namemap
                             elif packed_type == 4:
+                                # slim zstd
                                 decoded_data = dctx.decompress(
                                     parsed.body.data.data.file_data_table.file_data_list[i].data[1:],
                                     # 200_000 is some working value
@@ -128,11 +130,13 @@ def unpack(filename: os.PathLike, dist_dir: os.PathLike, file_list_path: Optiona
                                 f.write(decoded_data)
                             # zstd packed blk file with dict
                             elif packed_type == 5:
+                                # slim zstd dict
                                 dict_decoded_data = dctx.decompress(
                                     parsed.body.data.data.file_data_table.file_data_list[i].data[1:])
                                 f.write(dict_decoded_data)
                             # not zstd packed, raw text blk file?
                             else:
+                                print(f'{unpacked_filename}: old')
                                 # print("unknown packed_type:{}, file:{}".format(packed_type,unpacked_filename))
                                 f.write(parsed.body.data.data.file_data_table.file_data_list[i].data)
                         else:
