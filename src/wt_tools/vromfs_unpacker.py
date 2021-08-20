@@ -9,6 +9,12 @@ import zstandard
 
 from formats.vromfs_parser import vromfs_file
 
+FAT = 1
+FAT_ZSTD = 2
+SLIM = 3
+SLIM_ZSTD = 4
+SLIM_SZTD_DICT = 5
+
 
 def mkdir_p(path):
     n_path = ''.join(os.path.split(path)[:-1])
@@ -57,7 +63,7 @@ def unpack(filename: os.PathLike, dist_dir: os.PathLike, file_list_path: Optiona
         base_names = (get_base_name(o.filename) for o in parsed.body.data.data.filename_table.filenames)
         first_bytes = (o.data[0] for o in parsed.body.data.data.file_data_table.file_data_list)
 
-        is_new_version = any(packed_type in (1, 2, 3, 4, 5)
+        is_new_version = any(packed_type in (FAT, FAT_ZSTD, SLIM, SLIM_ZSTD, SLIM_SZTD_DICT)
                              for basename, packed_type in zip(base_names, first_bytes)
                              if basename.endswith('.blk'))
 
@@ -101,42 +107,28 @@ def unpack(filename: os.PathLike, dist_dir: os.PathLike, file_list_path: Optiona
                                 max_output_size=parsed.body.data.data.file_data_table.file_data_list[i].file_data_size)
                             f.write(name_map_decompressed)
                         elif unpacked_filename.endswith('.blk'):
-                            # print(unpacked_filename)
-                            # skip empty file
                             if parsed.body.data.data.file_data_table.file_data_list[i].file_data_size == 0:
                                 continue
                             packed_type = parsed.body.data.data.file_data_table.file_data_list[i].data[0]
-                            # not zstd packed, small blk file, with inner dict?
-                            if packed_type == 1:
-                                # fat
+                            if packed_type == FAT:
                                 f.write(parsed.body.data.data.file_data_table.file_data_list[i].data[1:])
-                            # where that file can be found?
-                            elif packed_type == 2:
-                                # fat zstd
+                            elif packed_type == FAT_ZSTD:
                                 decoded_data = dctx.decompress(
                                     parsed.body.data.data.file_data_table.file_data_list[i].data[4:])
                                 f.write(decoded_data[1:])
-                            # not zstd packed, small blk file?
-                            elif packed_type == 3:
-                                # slim
+                            elif packed_type == SLIM:
                                 f.write(parsed.body.data.data.file_data_table.file_data_list[i].data[1:])
-                            # zstd packed without dict with namemap
-                            elif packed_type == 4:
-                                # slim zstd
+                            elif packed_type == SLIM_ZSTD:
                                 decoded_data = dctx.decompress(
                                     parsed.body.data.data.file_data_table.file_data_list[i].data[1:],
-                                    # 200_000 is some working value
                                     max_output_size=5_000_000)
                                 f.write(decoded_data)
-                            # zstd packed blk file with dict
-                            elif packed_type == 5:
-                                # slim zstd dict
+                            elif packed_type == SLIM_SZTD_DICT:
                                 dict_decoded_data = dctx.decompress(
                                     parsed.body.data.data.file_data_table.file_data_list[i].data[1:])
                                 f.write(dict_decoded_data)
                             # not zstd packed, raw text blk file?
                             else:
-                                print(f'{unpacked_filename}: old')
                                 # print("unknown packed_type:{}, file:{}".format(packed_type,unpacked_filename))
                                 f.write(parsed.body.data.data.file_data_table.file_data_list[i].data)
                         else:
