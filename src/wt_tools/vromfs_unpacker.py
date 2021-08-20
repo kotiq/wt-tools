@@ -61,7 +61,7 @@ def unpack(filename: os.PathLike, dist_dir: os.PathLike, file_list_path: Optiona
             return name[pos+1:]
 
         base_names = (get_base_name(o.filename) for o in parsed.body.data.data.filename_table.filenames)
-        first_bytes = (o.data[0] for o in parsed.body.data.data.file_data_table.file_data_list)
+        first_bytes = (o.data[0] if o.data else None for o in parsed.body.data.data.file_data_table.file_data_list)
 
         is_new_version = any(packed_type in (FAT, FAT_ZSTD, SLIM, SLIM_ZSTD, SLIM_SZTD_DICT)
                              for basename, packed_type in zip(base_names, first_bytes)
