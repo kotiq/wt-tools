@@ -217,7 +217,7 @@ vromfs_file = Struct(
     "vromfs_offset" / Tell,
     "body" / vromfs_body,
     If(this.header.packed_size == 0, Seek(this.vromfs_offset + this.header.original_size)),
-    If(this.header.vromfs_type != ZSTD_PACKED_NOCHECK, "md5" / Bytes(16)),
+    "md5" / If(this.header.vromfs_type != ZSTD_PACKED_NOCHECK, Bytes(16)),
     "tail" / GreedyBytes,
     Check(lambda c: len(c.tail) in (0, 0x100)),
 )
