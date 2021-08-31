@@ -5,7 +5,7 @@ import struct
 import uuid
 import zlib
 from collections import OrderedDict
-from typing import Tuple, List, Iterable, Any, Dict
+from typing import Tuple, List, Iterable, Any, Dict, MutableMapping
 
 import click
 from lark import Lark, LarkError
@@ -79,6 +79,22 @@ class NoIndentEncoder(json.JSONEncoder):
         return result
 
 
+def transform_mapping(m: MutableMapping):
+    for n, vs in m.items():
+        if len(vs) > 1:
+            xs = []
+            for v in vs:
+                if isinstance(v, MutableMapping):
+                    transform_mapping(v)  # @r
+                xs.append(v)
+            m[n] = xs
+        else:
+            v = vs[0]
+            if isinstance(v, MutableMapping):
+                transform_mapping(v)  # @r
+            m[n] = v
+
+
 class BLK:
     sz_file_from_header_offset = 0x8
     num_of_units_in_file_offset = 0xc
@@ -86,7 +102,7 @@ class BLK:
     units_length_type_v3_offset = 0xd
     bbf_magic = b'\x00BBF'
     bbz_magic = b'\x00BBz'
-    output_type = {'json': 0x0, 'json_min': 0x1, 'strict_blk': 0x2, 'json_2': 0x3}
+    output_type = {'json': 0x0, 'json_min': 0x1, 'strict_blk': 0x2, 'json_2': 0x3, 'json_3': 0x4}
 
     def __init__(self, data):
         self.data = data
@@ -128,6 +144,10 @@ class BLK:
         elif self.output_type == BLK.output_type['strict_blk']:
             return self.print_strict_blk(unpacked_data)
         elif self.output_type == BLK.output_type['json_2']:
+            return json.dumps(unpacked_data, ensure_ascii=False, cls=NoIndentEncoder, indent=2, separators=(',', ': '),
+                              sort_keys=is_sorted)
+        elif self.output_type == BLK.output_type['json_3']:
+            transform_mapping(unpacked_data)
             return json.dumps(unpacked_data, ensure_ascii=False, cls=NoIndentEncoder, indent=2, separators=(',', ': '),
                               sort_keys=is_sorted)
         else:
@@ -393,7 +413,7 @@ class BLK:
         """
         if self.output_type == BLK.output_type['strict_blk']:
             block.append((str_id, val_type, value))
-        elif self.output_type == BLK.output_type['json_2']:
+        elif self.output_type in (BLK.output_type['json_2'], BLK.output_type['json_3']):
             # first value, no duplicates
             if str_id not in block:
                 block[str_id] = [value]
@@ -616,7 +636,7 @@ def unpack_dir(dirname: os.PathLike, out_type: int, is_sorted: bool):
 
 @click.command()
 @click.argument('path', type=click.Path(exists=True))
-@click.option('--format', 'out_format', type=click.Choice(['json', 'json_min', 'strict_blk', 'json_2'],
+@click.option('--format', 'out_format', type=click.Choice(['json', 'json_min', 'strict_blk', 'json_2', 'json_3'],
     case_sensitive=False), default='json', show_default=True)
 @click.option('--sort', 'is_sorted', is_flag=True, default=False)
 def main(path: os.PathLike, out_format: str, is_sorted: bool):
@@ -644,6 +664,8 @@ def main(path: os.PathLike, out_format: str, is_sorted: bool):
         out_type = BLK.output_type['strict_blk']
     elif out_format == 'json_2':
         out_type = BLK.output_type['json_2']
+    elif out_format == 'json_3':
+        out_type = BLK.output_type['json_3']
     else:
         out_type = BLK.output_type['json']
 
