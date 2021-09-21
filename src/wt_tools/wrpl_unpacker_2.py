@@ -1,4 +1,15 @@
-"""Распаковка клиентского реплея после смены формата."""
+"""
+Распаковка клиентского реплея после смены формата.
+
+Вход:
+#2021.09.20 19.30.33.wrpl
+
+Выход:
+#2021.09.20 19.30.33.wrpl.d/
+├── m_set.json
+├── rez.json
+└── wrplu.bin
+"""
 
 import argparse
 from pathlib import Path
@@ -95,7 +106,7 @@ def ZlibStream(sz: t.Union[int, callable]) -> ct.Construct:
     return ZlibCompressed(ct.Bytes(sz))
 
 
-VRPLCliFile = ct.Struct(
+WRPLCliFile = ct.Struct(
     'header' / Header,
     'm_set' / FatBlockStream(this.header.m_set_size),
     'wrplu_offset' / ct.Tell,
@@ -115,10 +126,10 @@ def main():
     replay = ns.replay
     out_format = ns.out_format
     out_type = out_type_map[out_format]
-    out_dir: Path = ns.out_dir
+    out_dir: Path = ns.out_dir / f'{replay.name}.d'
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    parsed = VRPLCliFile.parse_stream(replay)
+    parsed = WRPLCliFile.parse_stream(replay)
     for name in ('m_set', 'rez'):
         section = parsed[name]
         out_path = (out_dir / name).with_suffix(suffix(out_format))
