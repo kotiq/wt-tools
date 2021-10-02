@@ -89,7 +89,6 @@ Header = ct.Struct(
 class FatBlock(ct.Adapter):
     def _decode(self, obj: bytes, context: ct.Container, path: str) -> Section:
         stream = io.BytesIO(obj)
-        ct.Const(b'\x01')._parsereport(stream, context, path)
         return bin.compose_fat(stream)
 
 
