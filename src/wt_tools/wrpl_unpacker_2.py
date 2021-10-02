@@ -125,7 +125,8 @@ def main():
     replay = ns.replay
     out_format = ns.out_format
     out_type = out_type_map[out_format]
-    out_dir: Path = ns.out_dir / f'{replay.name}.d'
+    replay_path = Path(replay.name)
+    out_dir: Path = ns.out_dir / f'{replay_path.name}.d'
     out_dir.mkdir(parents=True, exist_ok=True)
 
     parsed = WRPLCliFile.parse_stream(replay)
