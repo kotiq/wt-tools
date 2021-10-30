@@ -2,8 +2,8 @@ name: CI
 
 on:
   push:
-    branches: 
-      - dev
+    branches:
+      - new-format
 
 jobs:
   build:
@@ -11,22 +11,22 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-16.04, windows-2019]
+        os: [ubuntu-latest, windows-2019]
 
     steps:
     - name: checkout sources
       uses: actions/checkout@v2
       with:
-        ref: dev
+        ref: new-format
     - name: setup python
       uses: actions/setup-python@v2
       with:
-        python-version: '3.8'
+        python-version: '3.7'
         architecture: 'x64'
     - name: install deps
-      run: python -m pip install -r requirements.txt
+      run: python -m pip install -r requirements-build-exe.txt
     - name: build release
-      run: python setup.py build
+      run: python cx_setup.py build
     - name: upload artifact
       uses: actions/upload-artifact@v2
       with:
