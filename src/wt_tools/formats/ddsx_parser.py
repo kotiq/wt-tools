@@ -1,6 +1,6 @@
 from construct import Struct, Int32ul, Int16ul, Int8ul, Nibble, Const, IfThenElse, this, Bytes, BitStruct
 
-from formats.common import FlagsEnumCumulative
+from .common import FlagsEnumCumulative
 
 '''
 typedef enum FLG_CONTIGUOUS_MIP {

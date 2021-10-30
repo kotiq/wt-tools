@@ -7,8 +7,12 @@ import zlib
 import pylzma
 import zstandard
 
-from formats.common import get_tool_path
-from formats.ddsx_parser import ddsx
+try:
+    from formats.common import get_tool_path
+    from formats.ddsx_parser import ddsx
+except ImportError:
+    from wt_tools.formats.common import get_tool_path
+    from wt_tools.formats.ddsx_parser import ddsx
 
 ddsx_types = [b'DXT1', b'DXT5']
 

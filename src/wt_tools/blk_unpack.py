@@ -10,7 +10,10 @@ from typing import Tuple, List, Iterable, Any, Dict, MutableMapping
 import click
 from lark import Lark, LarkError
 
-from formats.common import get_tool_path
+try:
+    from formats.common import get_tool_path
+except ImportError:
+    from wt_tools.formats.common import get_tool_path
 
 type_list = {
     0x0: 'size', 0x1: 'str', 0x2: 'int', 0x3: 'float', 0x4: 'vec2f',

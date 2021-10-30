@@ -7,7 +7,10 @@ from typing import Optional
 import click
 import zstandard
 
-from formats.vromfs_parser import vromfs_file
+try:
+    from formats.vromfs_parser import vromfs_file
+except ImportError:
+    from wt_tools.formats.vromfs_parser import vromfs_file
 
 FAT = 1
 FAT_ZSTD = 2

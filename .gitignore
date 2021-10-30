@@ -8,6 +8,11 @@ venv/
 # python
 __pycache__/
 
-# dist, test
+# dist, test, pack
 build/
+dist/
 .pytest_cache/
+*.egg-info
+
+# setuptools_scm version
+src/wt_tools/_version.py

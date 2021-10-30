@@ -21,7 +21,10 @@ import construct as ct
 from blk.types import Section
 import blk.text as txt
 import blk.json as jsn
-from formats.wrpl import WRPLCliFile
+try:
+    from formats.wrpl_parser_ng import WRPLCliFile
+except ImportError:
+    from wt_tools.formats.wrpl_parser_ng import WRPLCliFile
 
 STRICT_BLK = 'strict_blk'
 JSON = 'json'

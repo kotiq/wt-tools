@@ -4,7 +4,10 @@ from typing import AnyStr, Dict
 
 from lark import Lark
 
-from formats.common import blk_transformer, get_tool_path
+try:
+    from formats.common import blk_transformer, get_tool_path
+except ImportError:
+    from wt_tools.formats.common import blk_transformer, get_tool_path
 
 strip_options = {
     'strip_empty_objects': False,

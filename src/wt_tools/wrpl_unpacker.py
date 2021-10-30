@@ -1,6 +1,9 @@
 import os.path
 import argparse
-from formats.wrpl_parser import wrpl_file, simple_blk_build
+try:
+    from formats.wrpl_parser import wrpl_file, simple_blk_build
+except ImportError:
+    from wt_tools.formats.wrpl_parser import wrpl_file, simple_blk_build
 
 
 def unpack(data, filename):

@@ -1,13 +1,15 @@
 # for parsing
-construct==2.9.42
+construct==2.9.44
 
 # for unpacking
-zstandard==0.15.1 --install-option="--legacy"
-# git+https://github.com/indygreg/python-zstandard.git@0.10.2 --install-option="--legacy"
+zstandard==0.15.1
 pylzma==0.5.0
 
-# for building wt-tools
-cx_Freeze==6.5.3
+# blk
+git+git://github.com/kotiq/blk@8c92e35
+
+# multiprocessing-logging==0.3.1
+multiprocessing-logging@https://github.com/jruere/multiprocessing-logging/archive/refs/tags/v0.3.1.tar.gz
 
 # for blk minimizing
 lark-parser==0.8.5
