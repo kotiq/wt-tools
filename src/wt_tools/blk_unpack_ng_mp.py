@@ -7,7 +7,10 @@ import typing as t
 from functools import partial
 import click
 from multiprocessing_logging import install_mp_handler
-import blk_unpack as bbf3
+try:
+    import blk_unpack as bbf3
+except ImportError:
+    import wt_tools.blk_unpack as bbf3
 import blk.binary as bin
 import blk.text as txt
 import blk.json as jsn

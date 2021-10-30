@@ -4,7 +4,10 @@ from pathlib import Path
 from traceback import print_exc
 import typing as t
 import click
-import blk_unpack as bbf3
+try:
+    import blk_unpack as bbf3
+except ImportError:
+    import wt_tools.blk_unpack as bbf3
 import blk.binary as bin
 from blk.binary.constructor import Name
 import blk.text as txt
