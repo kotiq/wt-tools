@@ -79,7 +79,7 @@ def process_file(file_path: Path, names: t.Optional[t.Sequence], out_type: int, 
                 if names is None:
                     nm_path = names_path(file_path, 'nm')
                     if nm_path:
-                        logging.info(f'Loading NameMap from {nm_path!r}')
+                        logging.info(f'Loading NameMap from {nm_path}')
                         with open(nm_path, 'rb') as nm_istream:
                             names = bin.compose_names_data(nm_istream)
                 if names:
@@ -123,7 +123,7 @@ def process_dir(dir_path: Path, out_type: int, is_sorted: bool, pool: mp.Pool):
     for path in paths:
         if path.is_file() and path.name == 'nm':
             try:
-                logging.info(f'Loading NameMap from {path!r}')
+                logging.info(f'Loading NameMap from {path}')
                 with open(path, 'rb') as nm_istream:
                     names = bin.compose_names_data(nm_istream)
 
@@ -188,4 +188,5 @@ def main(path: str, out_format: str, is_sorted: bool):
 
 
 if __name__ == '__main__':
+    mp.freeze_support()
     main()
