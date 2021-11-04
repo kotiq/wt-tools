@@ -1,7 +1,7 @@
 import pytest
 import tempfile
 import os.path
-from src.wt_tools import blk_unpack
+from wt_tools import blk_unpack
 
 test_data_folder = "data_for_tests"
 test_data_output_folder = os.path.join(test_data_folder, 'out')

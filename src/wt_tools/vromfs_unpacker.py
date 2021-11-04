@@ -1,22 +1,25 @@
 import errno
+from enum import IntEnum
 import json
 import os
+import sys
+from operator import attrgetter
 from hashlib import md5
-from typing import Optional
-
+from typing import AnyStr, Optional, Sequence, Union
 import click
-import zstandard
-
+import zstandard as zstd
 try:
     from formats.vromfs_parser import vromfs_file
 except ImportError:
     from wt_tools.formats.vromfs_parser import vromfs_file
 
-FAT = 1
-FAT_ZSTD = 2
-SLIM = 3
-SLIM_ZSTD = 4
-SLIM_SZTD_DICT = 5
+
+class BlkType(IntEnum):
+    FAT = 1
+    FAT_ZSTD = 2
+    SLIM = 3
+    SLIM_ZSTD = 4
+    SLIM_SZTD_DICT = 5
 
 
 def mkdir_p(path):
@@ -31,131 +34,159 @@ def mkdir_p(path):
             raise
 
 
-def unpack(filename: os.PathLike, dist_dir: os.PathLike, file_list_path: Optional[os.PathLike] = None):
-    """
-    Unpacks files from vromfs
+MAX_OUTPUT_SIZE = 5_000_000
 
-    :param filename: path to vromfs file
-    :param dist_dir: path to output dir
-    :param file_list_path: path to file list, if you want to unpack only few files, in json list.
+
+def get_blk_content(node, dctx: Optional[zstd.ZstdDecompressor]) -> bytes:
+    if node.file_data_size == 0:
+        bs = b''
+    else:
+        pk_type = node.data[0]
+        if (pk_type in (BlkType.FAT_ZSTD, BlkType.SLIM_ZSTD, BlkType.SLIM_SZTD_DICT)) and not dctx:
+            raise RuntimeError("ZstdDecomressor instance expected, packed_type: {}".format(pk_type))
+
+        if pk_type == BlkType.FAT:
+            bs = node.data[1:]
+        elif pk_type == BlkType.FAT_ZSTD:
+            pk_size = int.from_bytes(node.data[1:4], byteorder='little')
+            pk_offset = 4
+            decoded = dctx.decompress(node.data[pk_offset:pk_offset+pk_size], max_output_size=MAX_OUTPUT_SIZE)
+            bs = decoded[1:]
+        elif pk_type == BlkType.SLIM:
+            bs = node.data[1:]
+        elif pk_type == BlkType.SLIM_ZSTD:
+            bs = dctx.decompress(node.data[1:], max_output_size=MAX_OUTPUT_SIZE)
+        elif pk_type == BlkType.SLIM_SZTD_DICT:
+            bs = dctx.decompress(node.data[1:], max_output_size=MAX_OUTPUT_SIZE)
+        else:
+            bs = node.data
+
+    return bs
+
+
+def get_shared_names_content(node, dctx: zstd.ZstdDecompressor) -> bytes:
+    pk_offset = 40
+    return dctx.decompress(node.data[pk_offset:], max_output_size=MAX_OUTPUT_SIZE)
+
+
+def get_dict_name(node) -> Optional[str]:
+    offset = 8
+    size = 32
+    dict_id: bytes = node.data[offset:offset+size]
+    if dict_id == b'\x00'*size:
+        return None
+    return f'{dict_id.hex()}.dict'
+
+
+def normalize_name(name: str) -> str:
+    return name.lstrip('/\\')
+
+
+get_name = attrgetter("filename")
+get_data = attrgetter("data")
+
+
+Path = Union[AnyStr, os.PathLike]
+
+
+def unpack(filename: Path, dest_dir: Path, file_list_path: Optional[Path] = None) -> Sequence[str]:
     """
+    Unpack files from .vromfs.bin
+
+    :param filename: path to .vromfs.bin file
+    :param dest_dir: path to output dir
+    :param file_list_path: path to file list, if you want to unpack only few files, in json list.
+    :return internal names that have been written
+    """
+
+    if file_list_path:
+        with open(file_list_path) as f:
+            try:
+                file_list = json.load(f)
+            except json.JSONDecodeError as e:
+                msg = "[FAIL] Load the file list from {}: {}".format(os.path.abspath(file_list_path), e)
+                print(msg, file=sys.stderr)
+                sys.exit(1)
+
+        file_list = [os.path.normcase(p) for p in file_list]
+    else:
+        file_list = None
+
+    if file_list == []:
+        print("[WARN] Nothing to do: the file list is empty.")
+        return ()
+
     with open(filename, 'rb') as f:
         data = f.read()
     parsed = vromfs_file.parse(data)
 
-    # want to unpack only listed files
-    if file_list_path:
-        with open(file_list_path, 'r') as f:
-            file_list = json.load(f)
+    names_ns = parsed.body.data.data.filename_table.filenames
+    files_count = len(names_ns)
+    data_ns = parsed.body.data.data.file_data_table.file_data_list
+    nm_id = files_count - 1
+    is_namemap_here = names_ns[nm_id].filename == 'nm'
 
-        # normalise paths in inputted list
-        file_list = [os.path.normcase(p) for p in file_list]
-
-    # is_new_version = parsed.is_new_version
-    is_dict_here = parsed.body.data.data.filename_table.filenames[0].filename.endswith('.dict')
-    is_namemap_here = parsed.body.data.data.filename_table.filenames[parsed.body.data.data.files_count-1]\
-        .filename == 'nm'
-
-    if is_dict_here or is_namemap_here:
-        is_new_version = True
-    else:
-        def get_base_name(name):
-            pos = name.rfind('/')
-            return name[pos+1:]
-
-        base_names = (get_base_name(o.filename) for o in parsed.body.data.data.filename_table.filenames)
-        first_bytes = (o.data[0] if o.data else None for o in parsed.body.data.data.file_data_table.file_data_list)
-
-        is_new_version = any(packed_type in (FAT, FAT_ZSTD, SLIM, SLIM_ZSTD, SLIM_SZTD_DICT)
-                             for basename, packed_type in zip(base_names, first_bytes)
-                             if basename.endswith('.blk'))
-
-    if is_new_version:
-        if is_dict_here:
-            zstd_dict = zstandard.ZstdCompressionDict(parsed.body.data.data.file_data_table.file_data_list[0].data,
-                                                      dict_type=zstandard.DICT_TYPE_AUTO)
-            # print("dict_id", zstd_dict.dict_id())
-            dctx = zstandard.ZstdDecompressor(dict_data=zstd_dict, format=zstandard.FORMAT_ZSTD1)
+    if is_namemap_here:
+        dict_name = get_dict_name(data_ns[nm_id])
+        if dict_name:
+            dict_id = None
+            for i, ns in enumerate(names_ns):
+                if ns.filename == dict_name:
+                    dict_id = i
+                    break
+            zstd_dict = zstd.ZstdCompressionDict(data_ns[dict_id].data, dict_type=zstd.DICT_TYPE_AUTO)
+            dctx = zstd.ZstdDecompressor(dict_data=zstd_dict, format=zstd.FORMAT_ZSTD1)
         else:
-            dctx = zstandard.ZstdDecompressor(format=zstandard.FORMAT_ZSTD1)
+            dctx = zstd.ZstdDecompressor(format=zstd.FORMAT_ZSTD1)
+    else:
+        dctx = None
 
-    with click.progressbar(range(parsed.body.data.data.files_count), label="Unpacking files") as bar:
+    written_names = []
+
+    with click.progressbar(range(files_count), label="Unpacking files") as bar:
         for i in bar:
-            vromfs_internal_file_path = parsed.body.data.data.filename_table.filenames[i].filename
             # clean leading slashes, there was a bug in 1.99.1.70 with "/version" file path
-            vromfs_internal_file_path = vromfs_internal_file_path.lstrip('/\\')
-            if file_list_path:
-                # TODO should be mostly the same as normal path, dedup
-                # FIXME this branch may be broken now
-                if os.path.normcase(vromfs_internal_file_path) in file_list:
-                    unpacked_filename = os.path.join(dist_dir, vromfs_internal_file_path)
-                    mkdir_p(unpacked_filename)
-                    with open(unpacked_filename, 'wb') as f:
-                        if is_new_version and is_dict_here and i != 0 and unpacked_filename.endswith('.blk'):
-                            f.write(dctx.decompress(parsed.body.data.data.file_data_table.file_data_list[i].data))
-                        else:
-                            f.write(parsed.body.data.data.file_data_table.file_data_list[i].data)
-            else:
-                unpacked_filename = os.path.join(dist_dir, vromfs_internal_file_path)
+            internal_file_path = normalize_name(names_ns[i].filename)
+
+            if (file_list is None) or (os.path.normcase(internal_file_path) in file_list):
+                unpacked_filename = os.path.join(dest_dir, internal_file_path)
                 mkdir_p(unpacked_filename)
                 with open(unpacked_filename, 'wb') as f:
-                    if is_new_version:
-                        if is_dict_here and i == 0:
-                            f.write(parsed.body.data.data.file_data_table.file_data_list[i].data)
-                        # last file `?nm` - name map
-                        # skip first 40 bytes, unpack, and few start bytes in unpacked namemap is unknown
-                        elif is_namemap_here and i == parsed.body.data.data.files_count - 1:
-                            name_map_decompressed = dctx.decompress(
-                                parsed.body.data.data.file_data_table.file_data_list[i].data[40:],
-                                max_output_size=parsed.body.data.data.file_data_table.file_data_list[i].file_data_size)
-                            f.write(name_map_decompressed)
-                        elif unpacked_filename.endswith('.blk'):
-                            if parsed.body.data.data.file_data_table.file_data_list[i].file_data_size == 0:
-                                continue
-                            packed_type = parsed.body.data.data.file_data_table.file_data_list[i].data[0]
-                            if packed_type == FAT:
-                                f.write(parsed.body.data.data.file_data_table.file_data_list[i].data[1:])
-                            elif packed_type == FAT_ZSTD:
-                                decoded_data = dctx.decompress(
-                                    parsed.body.data.data.file_data_table.file_data_list[i].data[4:])
-                                f.write(decoded_data[1:])
-                            elif packed_type == SLIM:
-                                f.write(parsed.body.data.data.file_data_table.file_data_list[i].data[1:])
-                            elif packed_type == SLIM_ZSTD:
-                                decoded_data = dctx.decompress(
-                                    parsed.body.data.data.file_data_table.file_data_list[i].data[1:],
-                                    max_output_size=5_000_000)
-                                f.write(decoded_data)
-                            elif packed_type == SLIM_SZTD_DICT:
-                                dict_decoded_data = dctx.decompress(
-                                    parsed.body.data.data.file_data_table.file_data_list[i].data[1:])
-                                f.write(dict_decoded_data)
-                            # not zstd packed, raw text blk file?
-                            else:
-                                # print("unknown packed_type:{}, file:{}".format(packed_type,unpacked_filename))
-                                f.write(parsed.body.data.data.file_data_table.file_data_list[i].data)
-                        else:
-                            f.write(parsed.body.data.data.file_data_table.file_data_list[i].data)
-                    # older blk versions
+                    if os.path.basename(unpacked_filename) == 'nm':
+                        bs = get_shared_names_content(data_ns[i], dctx)
+                    elif unpacked_filename.endswith('.blk'):
+                        bs = get_blk_content(data_ns[i], dctx)
                     else:
-                        f.write(parsed.body.data.data.file_data_table.file_data_list[i].data)
+                        bs = data_ns[i].data
+
+                    if bs:
+                        f.write(bs)
+                        written_names.append(internal_file_path)
+
+    print("[OK] {} => {}".format(*map(os.path.abspath, (filename, dest_dir))))
+
+    return tuple(written_names)
 
 
-def files_list_info(filename: os.PathLike, dist_file: Optional[os.PathLike]) -> Optional[str]:
+def files_list_info(filename: Path, dest_file: Optional[Path] = None) -> Optional[str]:
     with open(filename, 'rb') as f:
         data = f.read()
     parsed = vromfs_file.parse(data)
+    names_ns = parsed.body.data.data.filename_table.filenames
+    data_ns = parsed.body.data.data.file_data_table.file_data_list
     out_list = []
 
-    for i in range(parsed.body.data.data.files_count):
-        m = md5(parsed.body.data.data.file_data_table.file_data_list[i].data).hexdigest()
-        out_list.append({"filename": os.path.normcase(parsed.body.data.data.filename_table.filenames[i]), "hash": m})
+    for name, data in zip(map(get_name, names_ns), map(get_data, data_ns)):
+        m = md5(data).hexdigest()
+        out_list.append({"filename": os.path.normcase(name), "hash": m})
+
     out_json = json.dumps({'version': 1, 'filelist': out_list})
-    if not dist_file:
+    if not dest_file:
         return out_json
     else:
-        with open(dist_file, 'w') as f:
+        with open(dest_file, 'w') as f:
             f.write(out_json)
+        print("[OK] {} => {}".format(*map(os.path.abspath, (filename, dest_file))))
 
 
 @click.command()
@@ -185,9 +216,9 @@ def main(filename: os.PathLike, output_path: Optional[os.PathLike], metadata: bo
     """
     if metadata:
         if output_path:
-            files_list_info(filename, dist_file=output_path)
+            files_list_info(filename, dest_file=output_path)
         else:
-            print(files_list_info(filename, dist_file=None))
+            print(files_list_info(filename, dest_file=None))
     else:
         # unpack into output_folder/some.vromfs.bin folder
         if output_path:

@@ -1,4 +1,4 @@
-from src.wt_tools.blk_minify import minify
+from wt_tools.blk_minify import minify
 
 strip_options = {
     'strip_empty_objects': False,
