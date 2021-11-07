@@ -8,11 +8,12 @@
 #2021.09.20 19.30.33.wrpl.d/
 ├── m_set.blkx
 ├── rez.blkx
-├── ssid.txt
+├── info.json
 └── wrplu.bin
 """
 
 import argparse
+import json
 from pathlib import Path
 import typing as t
 import os
@@ -89,9 +90,16 @@ def main():
     out_path = out_dir / 'wrplu.bin'
     out_path.write_bytes(parsed.wrplu)
 
-    out_path = out_dir / 'ssid.txt'
-    ssid = parsed.header.ssid
-    out_path.write_text(str(ssid))
+    out_path = out_dir / 'info.json'
+    info = {
+        'difficulty': parsed.header.difficulty.value,
+        'session_type': parsed.header.session_type.value,
+        'battle_class': parsed.header.battle_class,
+        'session_id': parsed.header.session_id,
+        'start_time': parsed.header.start_time,
+    }
+    with create_text(out_path) as ostream:
+        json.dump(info, ostream, indent=2)
 
     print(f'{replay.name} => {out_dir}')
 
