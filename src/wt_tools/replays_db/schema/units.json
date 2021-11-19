@@ -1,0 +1,13 @@
+{
+  "_": {
+    "type": "dict",
+    "keysrules": {"type": "string"},
+    "valuesrules": {
+      "type": "dict",
+      "schema": {
+        "rank": {"type": "integer", "min": 0},
+        "tier": {"type": "integer", "min": 1}
+      }
+    }
+  }
+}

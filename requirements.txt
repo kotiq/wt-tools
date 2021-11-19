@@ -25,3 +25,7 @@ jsondiff==1.2.0
 
 # for http requests
 requests==2.25.1
+
+# validating
+typing-extensions
+cerberus

@@ -1,0 +1,7 @@
+{
+  "_": {
+    "type": "dict",
+    "keysrules": {"type": "integer", "coerce": "int", "min": 0},
+    "valuesrules": {"type": "string"}
+  }
+}

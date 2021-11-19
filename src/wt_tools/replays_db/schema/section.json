@@ -1,0 +1,36 @@
+{
+  "uiScriptsData": {
+    "type": "dict",
+    "coerce": "fst",
+    "schema": {
+      "playersInfo": {
+        "type": "dict",
+        "coerce": "fst",
+        "valuesrules": {
+          "coerce": "fst",
+          "type": "dict",
+          "schema": {
+            "id": {"type": "integer", "coerce":  "fst", "min": 0},
+            "name": {"type": "string", "coerce": "fst"},
+            "team": {"type": "integer", "coerce": "fst", "min": 0},
+            "rank": {"type": "integer", "coerce": "fst", "min": 0},
+            "crafts_info" : {
+              "type": "dict",
+              "coerce": ["fst", "rm_hidden"],
+              "keysrules": {"type": "string", "regex": "array[\\d]+"},
+              "valuesrules": {
+                "coerce": "fst",
+                "type": "dict",
+                "schema": {
+                  "name": {"type": "string", "coerce": "fst"},
+                  "rank": {"type": "integer", "min": 1, "coerce": "fst"},
+                  "mrank": {"type": "integer", "min": 0, "coerce": "fst"}
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -16,3 +16,6 @@ dist/
 
 # setuptools_scm version
 src/wt_tools/_version.py
+
+# ipython
+.ipynb_checkpoints/

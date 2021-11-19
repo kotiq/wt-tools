@@ -14,15 +14,11 @@ Build requirements:
 1. VS Build Tools for Windows from [here](https://visualstudio.microsoft.com/downloads/?q=build+tools).
 2. Python 3.7.* from [here](https://www.python.org/downloads/) or PyPy 3.7.* from [here](https://www.pypy.org/download.html).
 
-Clone the repo:
+Clone the repo and install as a package:
 
 ```shell
 git clone https://github.com/kotiq/wt-tools
-```
-
-Install as a package: 
-
-```shell
+cd wt-tools
 pip install .
 ```
 

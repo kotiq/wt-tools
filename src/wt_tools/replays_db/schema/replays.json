@@ -1,0 +1,27 @@
+{
+  "_": {
+    "type": "dict",
+    "keysrules": {"type": "integer", "coerce": "int", "min": 0},
+    "valuesrules": {
+      "type": "dict",
+      "schema": {
+        "difficulty": {"type": "integer", "min": 0},
+        "start_time": {"type": "integer", "min": 0},
+        "info": {
+          "type": "dict",
+          "keysrules": {"type": "integer", "coerce": "int", "min": 0},
+          "valuesrules": {
+            "type": "dict",
+            "schema": {
+              "team": {"type": "integer", "min": 0},
+              "rank": {"type": "integer", "min": 0},
+              "units": {
+                "type": "list",
+                "schema": {"type": "string"}}
+            }
+          }
+        }
+      }
+    }
+  }
+}
