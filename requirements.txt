@@ -6,7 +6,7 @@ zstandard==0.15.1
 pylzma==0.5.0
 
 # blk
-git+git://github.com/kotiq/blk@8c92e35
+git+https://github.com/kotiq/blk@8c92e35
 
 # multiprocessing-logging==0.3.1
 multiprocessing-logging@https://github.com/jruere/multiprocessing-logging/archive/refs/tags/v0.3.1.tar.gz
