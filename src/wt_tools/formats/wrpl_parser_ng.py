@@ -23,7 +23,6 @@ class Difficulty(enum.IntEnum):
 class SessionType(enum.IntEnum):
     AIR_SIM = 0x3C  # самолеты, симуляторные бои
     MARINE_BATTLE = 0x1a  # морские бои
-    UNKNOWN_1 = 0x18
     RANDOM_BATTLE = 0x20
     CUSTOM_BATTLE = 0x40  # полигон
     USER_MISSION = 0x01  # пользовательские миссии
@@ -36,9 +35,6 @@ DifficultyCon = ct.ExprAdapter(ct.Bitwise(ct.FocusedSeq(
     lambda obj, context: Difficulty(obj),
     no_encoder
 )
-
-SessionTypeCon = ct.ExprAdapter(ct.Byte, lambda obj, context: SessionType(obj), no_encoder)
-
 
 Header = ct.Struct(
     'magic' / ct.Const(bytes.fromhex('e5ac0010')),

@@ -92,8 +92,8 @@ def main():
 
     out_path = out_dir / 'info.json'
     info = {
-        'difficulty': parsed.header.difficulty.value,
-        'session_type': parsed.header.session_type.value,
+        'difficulty': int(parsed.header.difficulty),
+        'session_type': int(parsed.header.session_type),
         'battle_class': parsed.header.battle_class,
         'session_id': parsed.header.session_id,
         'start_time': parsed.header.start_time,
