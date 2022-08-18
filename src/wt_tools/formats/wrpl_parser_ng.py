@@ -23,6 +23,7 @@ class Difficulty(enum.IntEnum):
 class SessionType(enum.IntEnum):
     AIR_SIM = 0x3C  # самолеты, симуляторные бои
     MARINE_BATTLE = 0x1a  # морские бои
+    UNKNOWN_1 = 0x18
     RANDOM_BATTLE = 0x20
     CUSTOM_BATTLE = 0x40  # полигон
     USER_MISSION = 0x01  # пользовательские миссии
@@ -50,7 +51,7 @@ Header = ct.Struct(
     'rez_offset' / ct.Int32ul,
     'difficulty' / DifficultyCon,
     'unk_35' / ct.Bytes(35),
-    'session_type' / SessionTypeCon,  # меня интересует только RANDOM_BATTLE для танков
+    'session_type' / ct.Byte,  # меня интересует только RANDOM_BATTLE для танков
     'unk_3' / ct.Bytes(3),
     'session_id' / ct.Int64ul,
     'unk_8' / ct.Bytes(8),
@@ -78,6 +79,7 @@ def ZlibStream(sz: t.Union[int, callable, None] = None):
 
 WRPLCliFile = ct.Struct(
     'header' / Header,
+    ct.Const(bytes.fromhex('3c00')),
     'm_set' / FatBlockStream(this.header.m_set_size),
     'wrplu_offset' / ct.Tell,
     'wrplu' / ZlibStream(this.header.rez_offset - this.wrplu_offset),
