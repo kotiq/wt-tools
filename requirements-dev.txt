@@ -1,4 +1,8 @@
 -r requirements.txt
+
+# bdist_msi
+setuptools==45.0
+
 cx_Freeze==6.5.3
 flake8==3.8.4
 mypy==0.800

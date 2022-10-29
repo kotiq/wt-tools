@@ -78,7 +78,7 @@ def process_file(file_path: Path, names: t.Optional[t.Sequence], out_type: int, 
                 if names is None:
                     nm_path = names_path(file_path, 'nm')
                     if nm_path:
-                        print(f'Loading NameMap from {nm_path!r}')
+                        print(f'Loading NameMap from {nm_path}')
                         with open(nm_path, 'rb') as nm_istream:
                             names = bin.compose_names_data(nm_istream)
                 if names:
@@ -119,7 +119,7 @@ def process_dir(dir_path: Path, out_type: int, is_sorted: bool):
     for path in paths:
         if path.is_file() and path.name == 'nm':
             try:
-                print(f'Loading NameMap from {path!r}')
+                print(f'Loading NameMap from {path}')
                 with open(path, 'rb') as nm_istream:
                     names = bin.compose_names_data(nm_istream)
 

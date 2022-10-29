@@ -1,2 +1,6 @@
 -r requirements.txt
+
+# bdist_msi
+setuptools==45.0
+
 cx_Freeze==6.8.1
