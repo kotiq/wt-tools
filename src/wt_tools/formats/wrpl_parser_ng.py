@@ -75,7 +75,7 @@ def ZlibStream(sz: t.Union[int, callable, None] = None):
 
 WRPLCliFile = ct.Struct(
     'header' / Header,
-    ct.Const(bytes.fromhex('3c00')),
+    ct.Bytes(2),
     'm_set' / FatBlockStream(this.header.m_set_size),
     'wrplu_offset' / ct.Tell,
     'wrplu' / ZlibStream(this.header.rez_offset - this.wrplu_offset),
