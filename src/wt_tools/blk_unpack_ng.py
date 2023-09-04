@@ -92,7 +92,7 @@ def process_file(file_path: Path, names: t.Optional[t.Sequence], out_type: int, 
             else:
                 istream.seek(0)
                 try:
-                    root = bin.compose_fat_data(istream)
+                    root = bin.compose_fat(istream) # previous function compose_fat_data caused an error
                     with create_text(out_path) as ostream:
                         serialize_text(root, ostream, out_type, is_sorted)
                 except bin.ComposeError:  # текст
